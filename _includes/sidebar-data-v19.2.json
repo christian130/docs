@@ -611,6 +611,12 @@
         "urls": [
           "/${VERSION}/sql-tuning-with-explain.html"
         ]
+      },
+      {
+        "title": "Developing a Multi-Region Application",
+        "urls": [
+          "/${VERSION}/tutorials/multi-region-flask.html"
+        ]
       }
     ]
   },
