@@ -428,6 +428,12 @@
             ]
           },
           {
+            "title": "Error Handling & Troubleshooting",
+            "urls": [
+              "/${VERSION}/error-handling-and-troubleshooting.html"
+            ]
+          },
+          {
             "title": "'Hello World' Example Apps",
               "items": [
                   {
