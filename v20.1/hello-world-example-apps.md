@@ -10,9 +10,9 @@ The examples in this section show you how to build simple "Hello World" applicat
 
 ## Apps
 
-Click the links in the table below to see example code for each supported language / library combo.
+Click the links in the table below to see simple but complete example applications for each supported language and library combination.
 
-If you are looking to do a specific task such as connect to the database, insert data, or run multi-statement transactions, see [here](#tasks).
+If you are looking to do a specific task such as connect to the database, insert data, or run multi-statement transactions, see [this list of tasks](#tasks).
 
 {% include {{page.version.version}}/misc/drivers.md %}
 
@@ -21,8 +21,8 @@ If you are looking to do a specific task such as connect to the database, insert
 Reference information:
 
 - [Client drivers](install-client-drivers.html)
-- [Connection parameters](connection-parameters.html)
 - [Third-party database tools](third-party-database-tools.html)
+- [Connection parameters](connection-parameters.html)
 - [Transactions](transactions.html)
 - [Performance best practices](performance-best-practices-overview.html)
 
