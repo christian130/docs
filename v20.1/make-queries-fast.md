@@ -4,49 +4,139 @@ summary: How to make your queries run faster during application development
 toc: true
 ---
 
-This page describes how to optimize OLTP application queries for CockroachDB.  To get good performance from CockroachDB, you need to answer questions on several layers, like an onion.
+This page describes how to optimize OLTP application queries for CockroachDB.  To get good performance from CockroachDB, you need to look at how you're using the database through several lenses:
 
-1. **Will the SQL queries you are executing perform well?** Specifically, are they returning too many rows?  Are they using the wrong type of [`JOIN`](joins.html)?  Are they using the right [index](indexes.html)?  Any index at all?  See [SQL query performance](#sql-query-performance) below.
-2. **Will your schema design perform well under your workload?** Even if you write good SQL, you may be querying a schema that will lead to contention under your workload.  For example, you may be trying to run a write-heavy workload against a schema that uses sequential primary keys, which leads to write hotspots.  See [Schema design](#schema-design) below.
-3. **Does the cluster topology you are using match your use case?**  Are you picking the right point in the latency vs. resiliency tradeoff? See [Cluster topology](#cluster-topology) below.
+- [SQL Query performance](#sql-query-performance)
+- [Schema Design](#schema-design)
+- [Cluster Topology](#cluster-topology)
 
 ## SQL query performance
 
-To get good SQL query performance, follow these rules (in order of importance):
+To get good SQL query performance, follow these rules (in rough order of importance):
 
 1. Make sure your query [scans at most a few dozen rows](#scan-at-most-a-few-dozen-rows) (several hundred rows at the absolute maximum).
-2. [Use the right join type](#use-the-right-join-type) for the tables you are querying.
-3. [Use the right index](#use-the-right-index).
+2. [Use the right index](#use-the-right-index).
+3. [Use the right join type, maybe](#use-the-right-join-type) for the tables you are querying.
+
+For example, let's look at a query using the [Employees data set](https://github.com/datacharmer/test_db).  Import it with:
+
+{% include copy-clipboard.html %}
+~~~ sql
+CREATE DATABASE IF NOT EXISTS employees;
+USE employees;
+IMPORT MYSQLDUMP 'https://s3-us-west-1.amazonaws.com/cockroachdb-movr/datasets/employees-db/mysqldump/employees-full.sql.gz';
+~~~
+
+The question we want to answer is "who are my top 25 highest-paid employees?"
+
+To answer this we will write a simple join query against the employees and salaries tables, something like (conceptually):
+
+```sql
+SELECT
+	e.last_name, s.salary
+FROM
+	employees AS e
+    JOIN
+    salaries AS s
+    ON e.emp_no = s.emp_no
+WHERE
+	s.salary > ?
+ORDER BY
+	s.salary DESC
+    LIMIT 25;
+```
+
+This will make more sense soon: read on.
 
 ### Scan at most a few dozen rows
 
-To determine how many rows a query is scanning, you have the following options:
+#### Study the schema
 
-1. Look at the output of [`EXPLAIN`](explain.html).  This can work if you know how to read `EXPLAIN` output and already know about how much data is in each table.
-2. Break apart the query and and run each piece to understand how many rows are being scanned.
+First, spend some time studying the schema so you understand the relationships between the tables.
 
-Option # 2 requires you to have a test environment available, but is generally easier.
+In this case you have already been told you will be joining the `employees` and `salaries` tables, so look at the relationsips between them using `SHOW COLUMNS FROM`
 
-For example, see the differences in output from these two [pagination](query-data.html#using-pagination) queries:
+TODO: show create table, etc.
 
-- One is using keyset pagination, scans a few dozen rows, and is fast:
+#### Get row counts
 
-XXX: YOU ARE HERE
+First, get the row counts for the tables involved in the query.  You need to understand which tables are large, and which are small by comparison.
 
-- One is using `LIMIT`/`OFFSET` to do pagination, scans the whole table, and is 10x slower:
+In this data set, there are about 300k employee records, and 2.8 million salary records.
 
+```sql
+SELECT COUNT(*) FROM employees;
+```
+
+```
+   count
++--------+
+  300024
+```
+
+```sql
+SELECT COUNT(*) FROM salaries;
+```
+
+```
+   count
++---------+
+  2844047
+```
+
+#### Write the queries and see how they run
+
+Now let's analyze the actual queries.  For each query, find out how many rows it may need to scan.  This can be done using one of the following techniques:
+
+1. Look at the output of [`EXPLAIN`](explain.html).  This can work if you know how to [read `EXPLAIN` output](sql-tuning-with-explain.html) and already know how much data is in each table.
+
+2. Break apart the query and and run each piece to understand how many rows are being scanned.  This is easier, but requires you to have a test environment available.
+
+{% include copy-clipboard.html %}
 ~~~ sql
-SELECT * FROM employees AS OF SYSTEM TIME '-1m' LIMIT 25 OFFSET 200024;
+ SELECT
+	e.last_name, s.salary
+FROM
+	employees AS e
+    JOIN
+    salaries AS s
+    ON e.emp_no = s.emp_no
+WHERE
+	s.salary > 145000 AND s.to_date > now()
+ORDER BY
+	s.salary DESC LIMIT 25;
 ~~~
 
-~~~
-... output snipped ...
-Time: 118.114ms
+{% include copy-clipboard.html %}
+~~~ sql
+SELECT stats.key                AS product_key,
+       SUM(product_stats.total) AS total,
+       p.id                     AS product_id
+  FROM
+    product_stats AS stats
+    JOIN
+    products AS p
+    ON p.id = stats.id
+  WHERE
+    p.category = ?
+    AND p.brand = ?
+  GROUP BY stats.key,
+           p.id
+  ORDER BY max(p.created_on) DESC
+  LIMIT ?
 ~~~
 
-For more information about pagination, and this specific data set, see [Using Pagination](query-data.html#using-pagination).
+### Use the right index
+
+Or really, use any index at all.
+
+TODO: add 2 indexes to salaries and to_date
 
 ### Use the right join type
+
+Note: you shouldn't mess with this unless you KNOW you need to override the join type selected by the CBO (link).  As time goes on, this becomes a worse and worse idea.
+
+
 
 General rules for join types:
 
@@ -58,9 +148,9 @@ General rules for join types:
 
 For more details, see the [join reference documentation](joins.html).
 
-### Use the right index
-
 ## Schema design
+
+2. **Will your schema design perform well under your workload?** Even if you write good SQL, you may be querying a schema that will lead to contention under your workload.  For example, you may be trying to run a write-heavy workload against a schema that uses sequential primary keys, which leads to write hotspots.  See [Schema design](#schema-design) below.
 
 The most important factor to consider when designing your schema is your workload's data access patterns.  In particular:
 
@@ -74,6 +164,8 @@ For more information about how to put these rules into practice, see:
 - [Unique ID Best Practices](performance-best-practices-overview.html#unique-id-best-practices)
 
 ## Cluster topology
+
+3. **Does the cluster topology you are using match your use case?**  Are you picking the right point in the latency vs. resiliency tradeoff? See [Cluster topology](#cluster-topology) below.
 
 The most important factor to consider in your choice of cluster topology is the latency vs. resiliency tradeoff.  In general, more resiliency will cost you in higher latency, since it requires more nodes in your cluster, spread over more availability zones.
 
@@ -115,5 +207,5 @@ Specific tasks:
 - [Update Data](update-data.html)
 - [Delete Data](delete-data.html)
 - [Run Multi-Statement Transactions](run-multi-statement-transactions.html)
+- [Error Handling and Troubleshooting](error-handling-and-troubleshooting.html)
 - [Hello World Example apps](hello-world-example-apps.html)
-
