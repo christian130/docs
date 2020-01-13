@@ -4,17 +4,17 @@ summary: How to connect to CockroachDB from your application
 toc: true
 ---
 
-This page has instructions for connecting to your CockroachDB cluster.  We assume that you already have a cluster up and running using the instructions for a [manual deployment][manual] or an [orchestrated deployment][orchestrated].
+This page has brief instructions for connecting to your CockroachDB cluster using various programming languages.
 
-The examples will show a connection string for a [secure local cluster][local_secure], which you will need to edit depending on your deployment type.
+We assume that you already have a cluster up and running using the instructions for a [manual deployment][manual] or an [orchestrated deployment][orchestrated]. The examples will show a connection string for a [secure local cluster][local_secure], which you will need to edit depending on your deployment type.
 
-For a reference explaining all the possible cluster connection parameters, see [Connection Parameters][connection_params].
+For a reference explaining all of the possible cluster connection parameters, see [Connection Parameters][connection_params].
 
 <div class="filters filters-big clearfix">
   <button class="filter-button" data-scope="sql">SQL</button>
+  <button class="filter-button" data-scope="go">Go</button>
   <button class="filter-button" data-scope="java">Java</button>
   <button class="filter-button" data-scope="python">Python</button>
-  <button class="filter-button" data-scope="go">Go</button>
 </div>
 
 <section class="filter-content" markdown="1" data-scope="sql">
@@ -25,6 +25,33 @@ For a reference explaining all the possible cluster connection parameters, see [
 ~~~ shell
 $ cockroach sql --certs-dir=certs --host=localhost:26257
 ~~~
+
+For more information about how to use the built-in SQL client, see the [`cockroach sql`](cockroach-sql.html) reference docs.
+
+</section>
+
+<section class="filter-content" markdown="1" data-scope="go">
+
+## Go
+
+{% include copy-clipboard.html %}
+~~~ go
+import (
+    "database/sql"
+    "fmt"
+    "log"
+    _ "github.com/lib/pq"
+)
+
+db, err := sql.Open("postgres",
+        "postgresql://maxroach@localhost:26257/bank?ssl=true&sslmode=require&sslrootcert=certs/ca.crt&sslkey=certs/client.maxroach.key&sslcert=certs/client.maxroach.crt")
+if err != nil {
+    log.Fatal("error connecting to the database: ", err)
+}
+defer db.Close()
+~~~
+
+For a simple but complete example, see [Build a Go App with CockroachDB](build-a-go-app-with-cockroachdb.html).
 
 </section>
 
@@ -51,6 +78,8 @@ ds.setReWriteBatchedInserts(true); // add `rewriteBatchedInserts=true` to pg con
 ds.setApplicationName("BasicExample");
 ~~~
 
+For a simple but complete example, see [Build a Java App with CockroachDB](build-a-java-app-with-cockroachdb.html).
+
 </section>
 
 <section class="filter-content" markdown="1" data-scope="python">
@@ -73,28 +102,7 @@ conn = psycopg2.connect(
 )
 ~~~
 
-</section>
-
-<section class="filter-content" markdown="1" data-scope="go">
-
-## Go
-
-{% include copy-clipboard.html %}
-~~~ go
-import (
-    "database/sql"
-    "fmt"
-    "log"
-    _ "github.com/lib/pq"
-)
-
-db, err := sql.Open("postgres",
-        "postgresql://maxroach@localhost:26257/bank?ssl=true&sslmode=require&sslrootcert=certs/ca.crt&sslkey=certs/client.maxroach.key&sslcert=certs/client.maxroach.crt")
-    if err != nil {
-        log.Fatal("error connecting to the database: ", err)
-    }
-    defer db.Close()
-~~~
+For a simple but complete example, see [Build a Python App with CockroachDB](build-a-python-app-with-cockroachdb.html).
 
 </section>
 
