@@ -16,9 +16,9 @@ To get good SQL query performance, follow these rules (in rough order of importa
 
 1. Make sure your query [scans at most a few dozen rows](#scan-at-most-a-few-dozen-rows) (several hundred rows at the absolute maximum).
 2. [Use the right index](#use-the-right-index).
-3. [Use the right join type, maybe](#use-the-right-join-type) for the tables you are querying.
+3. If needed, check that your query is [using the right join type](#use-the-right-join-type) for the table sizes you are querying.  (This should rarely be necessary.)
 
-For example, let's look at a query using the [Employees data set](https://github.com/datacharmer/test_db).  Import it with:
+For example, let's optimize a query against the [Employees data set](https://github.com/datacharmer/test_db).  To import the data set, run:
 
 {% include copy-clipboard.html %}
 ~~~ sql
@@ -27,9 +27,9 @@ USE employees;
 IMPORT MYSQLDUMP 'https://s3-us-west-1.amazonaws.com/cockroachdb-movr/datasets/employees-db/mysqldump/employees-full.sql.gz';
 ~~~
 
-The question we want to answer is "who are my top 25 highest-paid employees?"
+The question we want to answer about this data is: "Who are the top 25 highest-paid employees?"
 
-To answer this we will write a simple join query against the employees and salaries tables, something like (conceptually):
+To answer this we will write a simple join query against the employees and salaries tables, something like the below:
 
 ```sql
 SELECT
@@ -54,15 +54,80 @@ This will make more sense soon: read on.
 
 First, spend some time studying the schema so you understand the relationships between the tables.
 
-In this case you have already been told you will be joining the `employees` and `salaries` tables, so look at the relationsips between them using `SHOW COLUMNS FROM`
+To figure out the lay of the land, run [`SHOW TABLES`](show-tables.html):
 
-TODO: show create table, etc.
+{% include copy-clipboard.html %}
+~~~ sql
+SHOW TABLES;
+~~~
+
+~~~
+   table_name
++--------------+
+  departments
+  dept_emp
+  dept_manager
+  employees
+  salaries
+  titles
+(6 rows)
+~~~
+
+Let's look at the schema for the `employees` table:
+
+{% include copy-clipboard.html %}
+~~~ sql
+SHOW CREATE TABLE employees;
+~~~
+
+~~~
+  table_name |                                    create_statement
++------------+-----------------------------------------------------------------------------------------+
+  employees  | CREATE TABLE employees (
+             |     emp_no INT4 NOT NULL,
+             |     birth_date DATE NOT NULL,
+             |     first_name VARCHAR(14) NOT NULL,
+             |     last_name VARCHAR(16) NOT NULL,
+             |     gender STRING NOT NULL,
+             |     hire_date DATE NOT NULL,
+             |     CONSTRAINT "primary" PRIMARY KEY (emp_no ASC),
+             |     FAMILY "primary" (emp_no, birth_date, first_name, last_name, gender, hire_date),
+             |     CONSTRAINT imported_from_enum_gender CHECK (gender IN ('M':::STRING, 'F':::STRING))
+             | )
+(1 row)
+~~~
+
+There's no salary information there, but luckily there is a `salaries` table.  Let's look at it.
+
+{% include copy-clipboard.html %}
+~~~ sql
+SHOW CREATE TABLE salaries;
+~~~
+
+~~~
+  table_name |                                          create_statement
++------------+-----------------------------------------------------------------------------------------------------+
+  salaries   | CREATE TABLE salaries (
+             |     emp_no INT4 NOT NULL,
+             |     salary INT4 NOT NULL,
+             |     from_date DATE NOT NULL,
+             |     to_date DATE NOT NULL,
+             |     CONSTRAINT "primary" PRIMARY KEY (emp_no ASC, from_date ASC),
+             |     CONSTRAINT salaries_ibfk_1 FOREIGN KEY (emp_no) REFERENCES employees(emp_no) ON DELETE CASCADE,
+             |     FAMILY "primary" (emp_no, salary, from_date, to_date)
+             | )
+(1 row)
+~~~
+
+OK, there's a salary field, and a foreign key on `emp_no`, which is also in the primary key of the `employees` table.
+
+To get the information we want, we'll need to do a join on `employees` and `salaries`.
 
 #### Get row counts
 
-First, get the row counts for the tables involved in the query.  You need to understand which tables are large, and which are small by comparison.
+Next, let's get the row counts for the tables that we'll be using in this query.  We need to understand which tables are large, and which are small by comparison.
 
-In this data set, there are about 300k employee records, and 2.8 million salary records.
+As shown below, this data set contains about 300k employee records, and 2.8 million salary records.  This matters because we want to make sure we're using the right kind of join for the relative table sizes in our query.
 
 ```sql
 SELECT COUNT(*) FROM employees;
@@ -84,13 +149,144 @@ SELECT COUNT(*) FROM salaries;
   2844047
 ```
 
-#### Write the queries and see how they run
+In this case, since one table is much larger than the other (about 10x) the size, we would like to [make sure a lookup join is used](#use-the-right-join-type).  But let's not worry about that yet.  For now, let's write our query.
 
-Now let's analyze the actual queries.  For each query, find out how many rows it may need to scan.  This can be done using one of the following techniques:
+### Use the right index
 
-1. Look at the output of [`EXPLAIN`](explain.html).  This can work if you know how to [read `EXPLAIN` output](sql-tuning-with-explain.html) and already know how much data is in each table.
+Here is a query that fetches the right answer to our question: "Who are the 25 highest-paid employees?"  Note that because the `salaries` table includes historical salaries for each employee, we needed to check that the salary is current by ensuring the salary record's `to_date` column is in the future in the `WHERE` clause.  This also required exploring the data a bit with some test queries and discovering that $145k was the right value to use so we weren't scanning too many records.
 
-2. Break apart the query and and run each piece to understand how many rows are being scanned.  This is easier, but requires you to have a test environment available.
+{% include copy-clipboard.html %}
+~~~ sql
+SELECT
+	e.last_name, s.salary
+FROM
+	employees AS e
+    JOIN
+    salaries AS s
+    ON e.emp_no = s.emp_no
+WHERE
+	s.salary > 145000 AND s.to_date > now()
+ORDER BY
+	s.salary DESC LIMIT 25;
+~~~
+
+Unfortunately this query is pretty slow.
+
+~~~
+   last_name  | salary
++-------------+--------+
+  Pesch       | 158220
+  Mukaidono   | 156286
+  Whitcomb    | 155709
+  Luders      | 155513
+  Alameldin   | 155190
+  Baca        | 154459
+  Meriste     | 154376
+  Griswold    | 153715
+  Chenoweth   | 152710
+  Hatcliff    | 152687
+  Birdsall    | 152412
+  Stanfel     | 152220
+  Moehrke     | 150740
+  Junet       | 150345
+  Kambil      | 150052
+  Thambidurai | 149440
+  Minakawa    | 148820
+  Birta       | 148212
+  Sudbeck     | 147480
+  Unni        | 147469
+  Chinin      | 146882
+  Gruenwald   | 146755
+  Teitelbaum  | 146719
+  Kobara      | 146655
+  Worfolk     | 146507
+(25 rows)
+
+Time: 2.341862s
+~~~
+
+We can see why if we look at the output of `EXPLAIN`.
+
+~~~
+            tree            |       field       |               description
++---------------------------+-------------------+-----------------------------------------+
+                            | distributed       | true
+                            | vectorized        | false
+  render                    |                   |
+   └── limit                |                   |
+        │                   | count             | 25
+        └── sort            |                   |
+             │              | order             | -salary
+             └── merge-join |                   |
+                  │         | type              | inner
+                  │         | equality          | (emp_no) = (emp_no)
+                  │         | left cols are key |
+                  │         | mergeJoinOrder    | +"(emp_no=emp_no)"
+                  ├── scan  |                   |
+                  │         | table             | employees@primary
+                  │         | spans             | ALL
+                  └── scan  |                   |
+                            | table             | salaries@primary
+                            | spans             | ALL
+                            | filter            | (salary > 145000) AND (to_date > now())
+(19 rows)
+~~~
+
+Uh oh. It looks like we are doing full table scans on both the `employees` and `salaries` tables (see `scan > spans=ALL`).  That tells us that we don't have indexes on all of the columns in our `WHERE` clause, which is [an indexing best practice](indexes.html#best-practices).
+
+Specifically, we need to create indexes on:
+
+- `salaries.salary`
+- `salaries.to_date`
+
+Let's verify our understanding with [`SHOW INDEXES`](show-index.html):
+
+{% include copy-clipboard.html %}
+~~~ sql
+SHOW INDEXES FROM salaries;
+~~~
+
+~~~
+  table_name | index_name | non_unique | seq_in_index | column_name | direction | storing | implicit
++------------+------------+------------+--------------+-------------+-----------+---------+----------+
+  salaries   | primary    |   false    |            1 | emp_no      | ASC       |  false  |  false
+  salaries   | primary    |   false    |            2 | from_date   | ASC       |  false  |  false
+(2 rows)
+~~~
+
+OK, so we have verified that the columns in our `WHERE` clause are not indexed.  Now we'll need to create indexes on those columns.
+
+First, we create the index on the `salaries.salary` column.
+
+{% include copy-clipboard.html %}
+~~~ sql
+CREATE INDEX ON salaries (salary);
+~~~
+
+Depending on your environment, this may take a few seconds, since the salaries table has ~3 million rows.
+
+~~~
+CREATE INDEX
+
+Time: 10.589462s
+~~~
+
+Next, let's create the index on `salaries.to_date`:
+
+{% include copy-clipboard.html %}
+~~~ sql
+CREATE INDEX ON salaries (to_date);
+~~~
+
+This will also take a few seconds, again due to the table size.
+
+~~~
+CREATE INDEX
+
+Time: 10.681537s
+~~~
+
+Now that we have indexes on all of the columns in our `WHERE` clause, let's run the query again.
 
 {% include copy-clipboard.html %}
 ~~~ sql
@@ -107,46 +303,98 @@ ORDER BY
 	s.salary DESC LIMIT 25;
 ~~~
 
-{% include copy-clipboard.html %}
-~~~ sql
-SELECT stats.key                AS product_key,
-       SUM(product_stats.total) AS total,
-       p.id                     AS product_id
-  FROM
-    product_stats AS stats
-    JOIN
-    products AS p
-    ON p.id = stats.id
-  WHERE
-    p.category = ?
-    AND p.brand = ?
-  GROUP BY stats.key,
-           p.id
-  ORDER BY max(p.created_on) DESC
-  LIMIT ?
+~~~
+        last  | salary
++-------------+--------+
+  Pesch       | 158220
+  Mukaidono   | 156286
+  Whitcomb    | 155709
+  Luders      | 155513
+  Alameldin   | 155190
+  Baca        | 154459
+  Meriste     | 154376
+  Griswold    | 153715
+  Chenoweth   | 152710
+  Hatcliff    | 152687
+  Birdsall    | 152412
+  Stanfel     | 152220
+  Moehrke     | 150740
+  Junet       | 150345
+  Kambil      | 150052
+  Thambidurai | 149440
+  Minakawa    | 148820
+  Birta       | 148212
+  Sudbeck     | 147480
+  Unni        | 147469
+  Chinin      | 146882
+  Gruenwald   | 146755
+  Teitelbaum  | 146719
+  Kobara      | 146655
+  Worfolk     | 146507
+(25 rows)
+
+Time: 14.37ms
 ~~~
 
-### Use the right index
-
-Or really, use any index at all.
-
-TODO: add 2 indexes to salaries and to_date
+Wow, that's about 140x faster (2000ms/14ms).  I'll take it!
 
 ### Use the right join type
 
-Note: you shouldn't mess with this unless you KNOW you need to override the join type selected by the CBO (link).  As time goes on, this becomes a worse and worse idea.
+Out of the box, the optimizer will select the right join type for your query in the majority of cases.  This statement becomes more and more true with every new release of CockroachDB.  Therefore, you should only provide [join hints](cost-based-optimizer.html#join-hints) in your query if you can **prove** to yourself through experimentation that the optimizer should be using a different join type than it is selecting.
 
+In most cases, you should not need to worry about this.
 
+Having said all of the above, here are some general guidelines for which types of joins should be used in which situations:
 
-General rules for join types:
+1. If one of the tables being joined is much smaller than the other, a [lookup join](joins.html#lookup-join) is best.  This will ensure that the query reads rows from the smaller table and matches them against the larger table.
 
-1. If one side A is much smaller than the other side B, use a lookup join with A on the left side.  This will ensure that the query touches only the smaller number of rows in A.
+2. Merge joins are used for tables that are roughly similar in size.  They offer better performance than hash joins, but [have some additional requirements](joins.html#merge-joins).
 
-`SELECT * FROM A LOOKUP JOIN B ON A.id = B.id ...`
-
-2. Hash join and merge join both iterate over each row on the left hand side, and then over each row on the right hand side.  They should be avoided in cases when A is much smaller than B.
+3. [Hash joins](joins.html#hash-joins) are used when tables are roughly similar in size, if the requirements for a merge join are not met.
 
 For more details, see the [join reference documentation](joins.html).
+
+Given the example query above, we can run an [`EXPLAIN`](explain.html) and verify that it is using a lookup join as expected, given the difference in size between these two tables:
+
+{% include copy-clipboard.html %}
+~~~ sql
+EXPLAIN SELECT
+ e.last_name, s.salary
+FROM
+ employees AS e
+    JOIN
+    salaries AS s
+    ON e.emp_no = s.emp_no
+WHERE
+ s.salary > 145000 AND s.to_date > now()
+ORDER BY
+ s.salary DESC LIMIT 25;
+~~~
+
+We can see that: yes, this query is indeed using the lookup join as expected.  No need to provide any hints, now that we've added the indexes in the previous section.
+
+~~~
+                tree               |         field         |         description
++----------------------------------+-----------------------+------------------------------+
+                                   | distributed           | true
+                                   | vectorized            | false
+  render                           |                       |
+   └── limit                       |                       |
+        │                          | count                 | 25
+        └── lookup-join            |                       |
+             │                     | table                 | employees@primary
+             │                     | type                  | inner
+             │                     | equality              | (emp_no) = (emp_no)
+             │                     | equality cols are key |
+             └── filter            |                       |
+                  │                | filter                | to_date > now()
+                  └── index-join   |                       |
+                       │           | table                 | salaries@primary
+                       └── revscan |                       |
+                                   | table                 | salaries@salaries_salary_idx
+                                   | spans                 | /145001-
+(17 rows)
+~~~
 
 ## Schema design
 
