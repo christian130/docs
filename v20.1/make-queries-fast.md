@@ -29,25 +29,6 @@ IMPORT MYSQLDUMP 'https://s3-us-west-1.amazonaws.com/cockroachdb-movr/datasets/e
 
 The question we want to answer about this data is: "Who are the top 25 highest-paid employees?"
 
-To answer this we will write a simple join query against the employees and salaries tables, something like the below:
-
-```sql
-SELECT
-	e.last_name, s.salary
-FROM
-	employees AS e
-    JOIN
-    salaries AS s
-    ON e.emp_no = s.emp_no
-WHERE
-	s.salary > ?
-ORDER BY
-	s.salary DESC
-    LIMIT 25;
-```
-
-This will make more sense soon: read on.
-
 ### Scan at most a few dozen rows
 
 #### Study the schema
@@ -121,13 +102,13 @@ SHOW CREATE TABLE salaries;
 
 OK, there's a salary field, and a foreign key on `emp_no`, which is also in the primary key of the `employees` table.
 
-To get the information we want, we'll need to do a join on `employees` and `salaries`.
+This means that to get the information we want, we'll need to do a join on `employees` and `salaries`.
 
 #### Get row counts
 
 Next, let's get the row counts for the tables that we'll be using in this query.  We need to understand which tables are large, and which are small by comparison.
 
-As shown below, this data set contains about 300k employee records, and 2.8 million salary records.  This matters because we want to make sure we're using the right kind of join for the relative table sizes in our query.
+As shown below, this data set contains about 300k employee records, and 2.8 million salary records.  This matters because later we will want to verify that we're [using the right kind of join](#use-the-right-join) for the relative table sizes in our query.
 
 ```sql
 SELECT COUNT(*) FROM employees;
@@ -149,11 +130,11 @@ SELECT COUNT(*) FROM salaries;
   2844047
 ```
 
-In this case, since one table is much larger than the other (about 10x) the size, we would like to [make sure a lookup join is used](#use-the-right-join-type).  But let's not worry about that yet.  For now, let's write our query.
-
 ### Use the right index
 
-Here is a query that fetches the right answer to our question: "Who are the 25 highest-paid employees?"  Note that because the `salaries` table includes historical salaries for each employee, we needed to check that the salary is current by ensuring the salary record's `to_date` column is in the future in the `WHERE` clause.  This also required exploring the data a bit with some test queries and discovering that $145k was the right value to use so we weren't scanning too many records.
+Below is a query that fetches the right answer to our question: "Who are the 25 highest-paid employees?"  Note that because the `salaries` table includes historical salaries for each employee, we needed to check that the salary is current by ensuring the salary record's `to_date` column is in the future in the `WHERE` clause.
+
+Building this query also required exploring the data a bit with some test queries and discovering that $145k was the right lower bound to use on `salary` so we weren't scanning too many records.
 
 {% include copy-clipboard.html %}
 ~~~ sql
@@ -170,7 +151,7 @@ ORDER BY
 	s.salary DESC LIMIT 25;
 ~~~
 
-Unfortunately this query is pretty slow.
+Unfortunately, this query is pretty slow.
 
 ~~~
    last_name  | salary
@@ -232,14 +213,17 @@ We can see why if we look at the output of `EXPLAIN`.
 (19 rows)
 ~~~
 
-Uh oh. It looks like we are doing full table scans on both the `employees` and `salaries` tables (see `scan > spans=ALL`).  That tells us that we don't have indexes on all of the columns in our `WHERE` clause, which is [an indexing best practice](indexes.html#best-practices).
+There are 2 problems:
 
-Specifically, we need to create indexes on:
+1. We are doing full table scans on both the `employees` and `salaries` tables (see `scan > spans=ALL`).  That tells us that we don't have indexes on all of the columns in our `WHERE` clause, which is [an indexing best practice](indexes.html#best-practices).
+2. We are using a merge join even though a lookup join is better when one of the tables is much smaller than the other, as it is in this case.
+
+The first problem is more urgent.  We need indexes on all of the columns in our `WHERE` clause.  Specifically, we need to create indexes on:
 
 - `salaries.salary`
 - `salaries.to_date`
 
-Let's verify our understanding with [`SHOW INDEXES`](show-index.html):
+Let's verify what indexes exist on the `salaries` table by running [`SHOW INDEXES`](show-index.html):
 
 {% include copy-clipboard.html %}
 ~~~ sql
@@ -254,7 +238,7 @@ SHOW INDEXES FROM salaries;
 (2 rows)
 ~~~
 
-OK, so we have verified that the columns in our `WHERE` clause are not indexed.  Now we'll need to create indexes on those columns.
+As we suspected, there are no indexes on `salary` or `to_date`, so we'll need to create indexes on those columns.
 
 First, we create the index on the `salaries.salary` column.
 
@@ -336,11 +320,13 @@ ORDER BY
 Time: 14.37ms
 ~~~
 
-Wow, that's about 140x faster (2000ms/14ms).  I'll take it!
+Wow, that's about 140x faster than before! (2000ms/14ms)  At this point we could be pretty satisfied with this query.
 
 ### Use the right join type
 
+{{site.data.alerts.callout_danger}}
 Out of the box, the optimizer will select the right join type for your query in the majority of cases.  This statement becomes more and more true with every new release of CockroachDB.  Therefore, you should only provide [join hints](cost-based-optimizer.html#join-hints) in your query if you can **prove** to yourself through experimentation that the optimizer should be using a different join type than it is selecting.
+{{site.data.alerts.end}}
 
 In most cases, you should not need to worry about this.
 
