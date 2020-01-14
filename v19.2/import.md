@@ -360,14 +360,14 @@ WITH
 
 #### Using a wildcard
 
-- <span class="version-tag">New in v19.2:</span> You can specify file patterns to match instead of explicitly listing every file. Use the `*` wildcard character to include matching files directly under the specified path. A wildcard can be used to include:
+- <span class="version-tag">New in v19.2:</span> You can specify [file patterns to match](https://golang.org/pkg/path/filepath/#Match) instead of explicitly listing every file. Use the `*` wildcard character to include matching files directly under the specified path. A wildcard can be used to include:
 
 - All files in a given directory (e.g.,`s3://bucket-name/path/to/data/*`)
 - All files in a given directory that end with a given string (e.g., `s3://bucket-name/files/*.csv`)
 - All files in a given directory that start with a given string (e.g., `s3://bucket-name/files/data*`)
--All files in a given directory that start and end with a given string (e.g., `s3://bucket-name/files/data*.csv`)
+- All files in a given directory that start and end with a given string (e.g., `s3://bucket-name/files/data*.csv`)
 
-These only match files directly under the specified path, and do not descend into additional directories recursively.
+These only match files directly under the specified path and do not descend into additional directories recursively.
 
 Amazon S3:
 
