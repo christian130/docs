@@ -62,25 +62,15 @@ For a complete example, see [Build a Java App with CockroachDB](build-a-java-app
 
 {% include copy-clipboard.html %}
 ~~~ java
-Map<Integer, Integer> accounts = new HashMap<Integer, Integer>();
-accounts.put(1, 1000);
-accounts.put(2, 250);
-
 // ds is an org.postgresql.ds.PGSimpleDataSource
 
 try (Connection connection = ds.getConnection()) {
     connection.setAutoCommit(false);
     PreparedStatement pstmt = connection.prepareStatement("INSERT INTO accounts (id, balance) VALUES (?, ?)");
 
-    for (Map.Entry<Integer, Integer> account : accounts.entrySet()) {
-
-        Integer k = account.getKey();
-        Integer v = account.getValue();
-
-        pstmt.setInt(1, k);
-        pstmt.setInt(2, v);
-        pstmt.addBatch();
-    }
+    pstmt.setInt(1, 1);
+    pstmt.setInt(2, 1000);
+    pstmt.addBatch();
 
     pstmt.executeBatch();
     connection.commit();
