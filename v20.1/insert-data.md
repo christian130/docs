@@ -58,7 +58,7 @@ if _, err := db.Exec(
 
 ## Java
 
-For a complete example, see [Build a Java App with CockroachDB](build-a-java-app-with-cockroachdb.html).
+For a complete example (including batch insertion code) see [Build a Java App with CockroachDB](build-a-java-app-with-cockroachdb.html).
 
 {% include copy-clipboard.html %}
 ~~~ java
@@ -93,7 +93,7 @@ For a complete example, see [Build a Python App with CockroachDB](build-a-python
 # conn is a psycopg2 connection
 
 with conn.cursor() as cur:
-    cur.execute(INSERT INTO accounts (id, balance) VALUES (1, 1000), (2, 250)')
+    cur.execute('INSERT INTO accounts (id, balance) VALUES (1, 1000), (2, 250)')
 
 conn.commit()
 ~~~
