@@ -4,7 +4,7 @@ summary: How to insert data into CockroachDB during application development
 toc: true
 ---
 
-This page has instructions for getting data into CockroachDB using various programming languages using the [`INSERT`](insert.html) SQL statement.
+This page has instructions for getting data into CockroachDB from various programming languages using the [`INSERT`](insert.html) SQL statement.
 
 The instructions assume that you already have a cluster up and running using the instructions for a [manual deployment][manual] or an [orchestrated deployment][orchestrated].
 
