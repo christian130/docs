@@ -10,8 +10,8 @@ The instructions assume that you already have a cluster up and running using the
 
 The instructions assume you are already [connected to the database](connect-to-the-database.html).
 
-{{site.data.alerts.callout_danger}}
-If you are just getting started and need to get a lot of data into a new CockroachDB cluster quickly, you should use the [`IMPORT`](import.html) statement using the instructions in the [Migration Overview](migration-overview.html).  It will be much faster because it bypasses the higher-level SQL layers altogether and writes to the data store using low-level commands.
+{{site.data.alerts.callout_success}}
+If you need to get a lot of data into a CockroachDB cluster quickly, use the [`IMPORT`](import.html) statement using the instructions in the [Migration Overview](migration-overview.html) instead of sending SQL [`INSERT`s](insert.html) from application code. It will be much faster because it bypasses the SQL layer altogether and writes directly to the data store using low-level commands.
 {{site.data.alerts.end}}
 
 <div class="filters filters-big clearfix">
@@ -25,11 +25,32 @@ If you are just getting started and need to get a lot of data into a new Cockroa
 
 ## SQL
 
+{% include copy-clipboard.html %}
+~~~ sql
+CREATE TABLE IF NOT EXISTS accounts (id INT PRIMARY KEY, balance INT);
+INSERT INTO accounts (id, balance) VALUES (1, 1000), (2, 250);
+~~~
+
+For more information about how to use the built-in SQL client, see the [`cockroach sql`](cockroach-sql.html) reference docs.
+
 </section>
 
 <section class="filter-content" markdown="1" data-scope="go">
 
 ## Go
+
+For a complete example, see [Build a Go App with CockroachDB](build-a-go-app-with-cockroachdb.html).
+
+{% include copy-clipboard.html %}
+~~~ go
+// 'db' is an open database connection
+
+// Insert two rows into the "accounts" table.
+if _, err := db.Exec(
+    "INSERT INTO accounts (id, balance) VALUES (1, 1000), (2, 250)"); err != nil {
+    log.Fatal(err)
+}
+~~~
 
 </section>
 
@@ -37,13 +58,55 @@ If you are just getting started and need to get a lot of data into a new Cockroa
 
 ## Java
 
-TIP: be sure to enable the rewritebatchedinserts=true on your JDBC driver (in the connection parameters) to get up to a 3x speedup.
+For a complete example, see [Build a Java App with CockroachDB](build-a-java-app-with-cockroachdb.html).
+
+{% include copy-clipboard.html %}
+~~~ java
+Map<Integer, Integer> accounts = new HashMap<Integer, Integer>();
+accounts.put(1, 1000);
+accounts.put(2, 250);
+
+// ds is an org.postgresql.ds.PGSimpleDataSource
+
+try (Connection connection = ds.getConnection()) {
+    connection.setAutoCommit(false);
+    PreparedStatement pstmt = connection.prepareStatement("INSERT INTO accounts (id, balance) VALUES (?, ?)");
+
+    for (Map.Entry<Integer, Integer> account : accounts.entrySet()) {
+
+        Integer k = account.getKey();
+        Integer v = account.getValue();
+
+        pstmt.setInt(1, k);
+        pstmt.setInt(2, v);
+        pstmt.addBatch();
+    }
+
+    pstmt.executeBatch();
+    connection.commit();
+} catch (SQLException e) {
+    System.out.printf("sql state = [%s]\ncause = [%s]\nmessage = [%s]\n",
+                      e.getSQLState(), e.getCause(), e.getMessage());
+}
+~~~
 
 </section>
 
 <section class="filter-content" markdown="1" data-scope="python">
 
 ## Python
+
+For a complete example, see [Build a Python App with CockroachDB](build-a-python-app-with-cockroachdb.html).
+
+{% include copy-clipboard.html %}
+~~~ python
+# conn is a psycopg2 connection
+
+with conn.cursor() as cur:
+    cur.execute(INSERT INTO accounts (id, balance) VALUES (1, 1000), (2, 250)')
+
+conn.commit()
+~~~
 
 </section>
 
@@ -57,7 +120,6 @@ Reference information related to this task:
 - [`INSERT`](insert.html)
 - [`UPSERT`](upsert.html)
 
-
 Other common tasks:
 
 - [Connect to the Database](connect-to-the-database.html)
@@ -68,3 +130,10 @@ Other common tasks:
 - [Run Multi-Statement Transactions](run-multi-statement-transactions.html)
 - [Error Handling and Troubleshooting](error-handling-and-troubleshooting.html)
 - [Hello World Example apps](hello-world-example-apps.html)
+
+<!-- Reference Links -->
+
+[manual]: manual-deployment.html
+[orchestrated]: orchestration.html
+[local_secure]: secure-a-cluster.html
+[connection_params]: connection-parameters.html
