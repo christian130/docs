@@ -1,14 +1,14 @@
 ---
-title: Overview
-summary: An overview of the CockroachDB Developer Guide
+title: Developer Guide Overview
+summary: An overview of common tasks that come up as you build an application on CockroachDB
 toc: true
 ---
 
-Something someting you need to connect your application to a database, and get good performance, and be happy and stuff.
+This guide will show you how to do common tasks that come up as you build an application that runs on top of CockroachDB.
 
-This guide will show you how to get your application working with CockroachDB as the data store.
+Each of the common tasks below is written to help you get your job done.  For some tasks, there will be links to more detailed reference information as needed.
 
-## Table of Contents
+## Common Tasks
 
 - [Connect to the Database](connect-to-the-database.html)
 - [Insert Data](insert-data.html)
@@ -17,8 +17,18 @@ This guide will show you how to get your application working with CockroachDB as
 - [Delete Data](delete-data.html)
 - [Make Queries Fast](make-queries-fast.html)
 - [Run Multi-Statement Transactions](run-multi-statement-transactions.html)
+- [Error Handling & Troubleshooting](error-handling-and-troubleshooting.html)
 - ['Hello World' Example Apps](hello-world-example-apps.html)
 
 ## See also
 
+Reference information:
+
 - [Connection parameters](connection-parameters.html)
+- [Migrate to CockroachDB](migration-overview.html)
+- [Selection queries](selection-queries.html)
+- [Joins](joins.html)
+- [`DELETE`](delete.html)
+- [`DROP TABLE`](drop-table.html)
+- [`EXPLAIN`](explain.html)
+- [Transactions](transactions.html)

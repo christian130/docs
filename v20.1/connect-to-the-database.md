@@ -1,14 +1,16 @@
 ---
 title: Connect to the Database
-summary: How to connect to CockroachDB from your application
+summary: How to connect to a CockroachDB cluster from your application
 toc: true
 ---
 
-This page has brief instructions for connecting to your CockroachDB cluster using various programming languages.
+This page has instructions for connecting to a CockroachDB cluster using various programming languages.
 
-We assume that you already have a cluster up and running using the instructions for a [manual deployment][manual] or an [orchestrated deployment][orchestrated]. The examples will show a connection string for a [secure local cluster][local_secure], which you will need to edit depending on your deployment type.
+The instructions assume that you already have a cluster up and running using the instructions for a [manual deployment][manual] or an [orchestrated deployment][orchestrated].
 
-For a reference explaining all of the possible cluster connection parameters, see [Connection Parameters][connection_params].
+The examples will show a connection string for a [secure local cluster][local_secure].  You may need to edit the connection string, depending on your cluster's configuration.
+
+For a reference that lists all of the supported cluster connection parameters, see [Connection Parameters][connection_params].
 
 <div class="filters filters-big clearfix">
   <button class="filter-button" data-scope="sql">SQL</button>
@@ -34,6 +36,8 @@ For more information about how to use the built-in SQL client, see the [`cockroa
 
 ## Go
 
+For a complete example, see [Build a Go App with CockroachDB](build-a-go-app-with-cockroachdb.html).
+
 {% include copy-clipboard.html %}
 ~~~ go
 import (
@@ -51,13 +55,13 @@ if err != nil {
 defer db.Close()
 ~~~
 
-For a simple but complete example, see [Build a Go App with CockroachDB](build-a-go-app-with-cockroachdb.html).
-
 </section>
 
 <section class="filter-content" markdown="1" data-scope="java">
 
 ## Java
+
+For a complete example, see [Build a Java App with CockroachDB](build-a-java-app-with-cockroachdb.html).
 
 {% include copy-clipboard.html %}
 ~~~ java
@@ -78,13 +82,13 @@ ds.setReWriteBatchedInserts(true); // add `rewriteBatchedInserts=true` to pg con
 ds.setApplicationName("BasicExample");
 ~~~
 
-For a simple but complete example, see [Build a Java App with CockroachDB](build-a-java-app-with-cockroachdb.html).
-
 </section>
 
 <section class="filter-content" markdown="1" data-scope="python">
 
 ## Python
+
+For a complete example, see [Build a Python App with CockroachDB](build-a-python-app-with-cockroachdb.html).
 
 {% include copy-clipboard.html %}
 ~~~ python
@@ -102,13 +106,11 @@ conn = psycopg2.connect(
 )
 ~~~
 
-For a simple but complete example, see [Build a Python App with CockroachDB](build-a-python-app-with-cockroachdb.html).
-
 </section>
 
 ## See also
 
-Reference information:
+Reference information related to this task:
 
 - [Connection parameters][connection_params]
 - [Manual deployments][manual]
@@ -117,7 +119,7 @@ Reference information:
 
 <a name="tasks"></a>
 
-Specific tasks:
+Other common tasks:
 
 - [Insert Data](insert-data.html)
 - [Query Data](query-data.html)
