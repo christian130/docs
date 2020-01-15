@@ -108,7 +108,7 @@ This means that to get the information we want, we'll need to do a join on `empl
 
 Next, let's get the row counts for the tables that we'll be using in this query.  We need to understand which tables are large, and which are small by comparison.
 
-As shown below, this data set contains about 300k employee records, and 2.8 million salary records.  This matters because later we will want to verify that we're [using the right kind of join](#use-the-right-join) for the relative table sizes in our query.
+As shown below, this data set contains about 300k employee records, and 2.8 million salary records.  This matters because later we will want to verify that we're [using the right kind of join](#use-the-right-join-type) for the relative table sizes in our query.
 
 ```sql
 SELECT COUNT(*) FROM employees;
@@ -332,7 +332,7 @@ In most cases, you should not need to worry about this.
 
 Having said all of the above, here are some general guidelines for which types of joins should be used in which situations:
 
-1. If one of the tables being joined is much smaller than the other, a [lookup join](joins.html#lookup-join) is best.  This will ensure that the query reads rows from the smaller table and matches them against the larger table.
+1. If one of the tables being joined is much smaller than the other, a [lookup join](joins.html#lookup-joins) is best.  This will ensure that the query reads rows from the smaller table and matches them against the larger table.
 
 2. Merge joins are used for tables that are roughly similar in size.  They offer better performance than hash joins, but [have some additional requirements](joins.html#merge-joins).
 
@@ -427,8 +427,8 @@ TODO: talk about secondary indexes - does your query have covering indexes
 
 Reference information:
 
-- [CockroachDB Performance](cockroachdb-performance.html)
-- [SQL Performance Best Practices](sql-performance-best-practices.html)
+- [CockroachDB Performance](performance.html)
+- [SQL Performance Best Practices](performance-best-practices-overview.html)
 - [Topology Patterns](topology-patterns.html)
 - [SQL Tuning with `EXPLAIN`](sql-tuning-with-explain.html)
 - [Joins](joins.html)
