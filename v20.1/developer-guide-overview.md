@@ -6,7 +6,7 @@ toc: true
 
 This guide will show you how to do common tasks that come up as you build an application that runs on top of CockroachDB.
 
-Each of the common tasks below is written to help you get your job done.  For some tasks, there will be links to more detailed reference information as needed.
+Each of the pages below is written to help you get your job done.  Each page has links to more detailed reference information as needed.
 
 ## Common Tasks
 
