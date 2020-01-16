@@ -19,6 +19,8 @@ The instructions assume that you have already:
   <button class="filter-button" data-scope="python">Python</button>
 </div>
 
+{% include {{page.version.version}}/app/retry-errors.md %}
+
 <section class="filter-content" markdown="1" data-scope="sql">
 
 ## SQL
@@ -157,6 +159,7 @@ Reference information related to this task:
 - [`SELECT`](select-clause.html)
 - [Joins][joins]
 - [Paginate through limited results][paginate]
+- [Understanding and Avoiding Transaction Contention](performance-best-practices-overview.html#understanding-and-avoiding-transaction-contention)
 
 Other common tasks:
 

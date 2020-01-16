@@ -21,6 +21,8 @@ If you need to get a lot of data into a CockroachDB cluster quickly, use the [`I
   <button class="filter-button" data-scope="python">Python</button>
 </div>
 
+{% include {{page.version.version}}/app/retry-errors.md %}
+
 <section class="filter-content" markdown="1" data-scope="sql">
 
 ## SQL
@@ -109,6 +111,7 @@ Reference information related to this task:
 - [Import performance](import.html#performance)
 - [`INSERT`](insert.html)
 - [`UPSERT`](upsert.html)
+- [Understanding and Avoiding Transaction Contention](performance-best-practices-overview.html#understanding-and-avoiding-transaction-contention)
 
 Other common tasks:
 
